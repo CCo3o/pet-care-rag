@@ -13,21 +13,24 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from app.chat import ChatAssistant
 from app.config import CHROMA_DIR, DOCS_DIR, CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, TOP_K
-from app.ingestion import load_documents, split_documents
+from app.lightweight_retrieval import LightweightRetriever
 from app.retrieval import PROMPT_TEMPLATE, create_llm, create_retriever
-from app.vector_store import build_index, get_embeddings, get_vector_store
 
 
 def build_assistant():
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("未配置 DEEPSEEK_API_KEY，请先检查 .env")
-    embeddings = get_embeddings(EMBEDDING_MODEL)
-    store = get_vector_store(embeddings, CHROMA_DIR)
-    if store._collection.count() == 0:
-        chunks = split_documents(load_documents(DOCS_DIR), CHUNK_SIZE, CHUNK_OVERLAP)
-        store = build_index(chunks, embeddings, CHROMA_DIR)
     llm = create_llm(DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL)
-    retriever = create_retriever(store, k=TOP_K)
+    if os.getenv('RETRIEVAL_BACKEND', 'vector').lower() == 'lightweight':
+        retriever = LightweightRetriever(DOCS_DIR, CHUNK_SIZE, CHUNK_OVERLAP, TOP_K)
+    else:
+        from app.vector_store import get_embeddings, get_vector_store, build_index
+        embeddings = get_embeddings(EMBEDDING_MODEL)
+        store = get_vector_store(embeddings, CHROMA_DIR)
+        if store._collection.count() == 0:
+            from app.ingestion import load_documents, split_documents
+            store = build_index(split_documents(load_documents(DOCS_DIR), CHUNK_SIZE, CHUNK_OVERLAP), embeddings, CHROMA_DIR)
+        retriever = create_retriever(store, k=TOP_K)
     chain = ChatPromptTemplate.from_template(PROMPT_TEMPLATE) | llm | StrOutputParser()
     return ChatAssistant(llm, retriever, chain)
 
