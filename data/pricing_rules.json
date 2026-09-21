@@ -1,0 +1,27 @@
+{
+  "version": "2026-09-20",
+  "currency": "CNY",
+  "base_daily_rates": {
+    "cat": {
+      "standard": {"label": "猫标准单间", "amount": 68},
+      "deluxe": {"label": "猫豪华套间", "amount": 98}
+    },
+    "dog": {
+      "small": {"label": "小型犬标准间", "amount": 88},
+      "medium": {"label": "中型犬标准间", "amount": 118},
+      "large": {"label": "大型犬加大间", "amount": 158}
+    },
+    "exotic": {
+      "standard": {"label": "异宠独立恒温笼位", "amount": 40}
+    }
+  },
+  "long_stay_discounts": [
+    {"minimum_days": 30, "multiplier": "0.80", "label": "满30天及以上，8折"},
+    {"minimum_days": 15, "multiplier": "0.85", "label": "满15天，85折"},
+    {"minimum_days": 7, "multiplier": "0.90", "label": "满7天，9折"}
+  ],
+  "holidays": {
+    "春节": {"base_rate_multiplier": "1.30", "label": "春节基础寄养费上浮30%"},
+    "国庆": {"base_rate_multiplier": "1.30", "label": "国庆基础寄养费上浮30%"}
+  }
+}

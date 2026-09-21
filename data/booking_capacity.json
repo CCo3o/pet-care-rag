@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "environment": "demo",
+  "description": "模拟门店容量，仅用于本地演示；每笔预订占一个位置，开始日和结束日均占位。",
+  "capacities": {
+    "cat_standard": 2,
+    "cat_deluxe": 1,
+    "dog_small": 2,
+    "dog_medium": 2,
+    "dog_large": 1,
+    "exotic": 2
+  }
+}

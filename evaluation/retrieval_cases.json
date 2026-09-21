@@ -1,0 +1,236 @@
+[
+  {
+    "id": "price_01",
+    "category": "价格与优惠",
+    "question": "中型犬寄养一天多少钱？",
+    "expected_sources": ["价目表.md"]
+  },
+  {
+    "id": "price_02",
+    "category": "价格与优惠",
+    "question": "猫咪住豪华套间每天怎么收费？",
+    "expected_sources": ["价目表.md"]
+  },
+  {
+    "id": "price_03",
+    "category": "价格与优惠",
+    "question": "寄养满 15 天有什么折扣？",
+    "expected_sources": ["价目表.md"]
+  },
+  {
+    "id": "price_04",
+    "category": "价格与优惠",
+    "question": "国庆寄养价格会上涨吗？",
+    "expected_sources": ["价目表.md", "节假日预约政策.md"]
+  },
+  {
+    "id": "price_05",
+    "category": "价格与优惠",
+    "question": "狗狗每天想多遛一次要加多少钱？",
+    "expected_sources": ["价目表.md", "遛弯与运动安排.md"]
+  },
+  {
+    "id": "price_06",
+    "category": "价格与优惠",
+    "question": "两只一起生活的猫合住，第二只怎么收费？",
+    "expected_sources": ["价目表.md"]
+  },
+  {
+    "id": "cancel_01",
+    "category": "退改规则",
+    "question": "入住前四天取消预订，能全额退款吗？",
+    "expected_sources": ["退改规则.md"]
+  },
+  {
+    "id": "cancel_02",
+    "category": "退改规则",
+    "question": "还有两天入住，现在取消要扣多少钱？",
+    "expected_sources": ["退改规则.md"]
+  },
+  {
+    "id": "cancel_03",
+    "category": "退改规则",
+    "question": "春节的定金可以提现吗？",
+    "expected_sources": ["退改规则.md", "节假日预约政策.md"]
+  },
+  {
+    "id": "cancel_04",
+    "category": "退改规则",
+    "question": "寄养期间提前接回，费用如何结算？",
+    "expected_sources": ["退改规则.md"]
+  },
+  {
+    "id": "holiday_01",
+    "category": "节假日预约",
+    "question": "春节寄养需要提前多久预约和付多少定金？",
+    "expected_sources": ["节假日预约政策.md"]
+  },
+  {
+    "id": "holiday_02",
+    "category": "节假日预约",
+    "question": "五一寄养按节假日价格吗？",
+    "expected_sources": ["节假日预约政策.md"]
+  },
+  {
+    "id": "admission_01",
+    "category": "入住要求",
+    "question": "狗狗寄养需要打哪些疫苗？",
+    "expected_sources": ["入住要求与疫苗规定.md"]
+  },
+  {
+    "id": "admission_02",
+    "category": "入住要求",
+    "question": "健康证明要几天内开具的？",
+    "expected_sources": ["入住要求与疫苗规定.md"]
+  },
+  {
+    "id": "admission_03",
+    "category": "入住要求",
+    "question": "10 周还没打完疫苗的小猫可以寄养吗？",
+    "expected_sources": ["入住要求与疫苗规定.md"]
+  },
+  {
+    "id": "admission_04",
+    "category": "入住要求",
+    "question": "8 岁以上的宠物入住还要额外准备什么？",
+    "expected_sources": ["入住要求与疫苗规定.md", "老年宠物寄养注意事项.md"]
+  },
+  {
+    "id": "visit_01",
+    "category": "接送与探视",
+    "question": "距离门店 8 公里可以上门接送吗，收费多少？",
+    "expected_sources": ["接送与探视服务.md"]
+  },
+  {
+    "id": "visit_02",
+    "category": "接送与探视",
+    "question": "寄养期间每天能免费看一次视频吗？",
+    "expected_sources": ["接送与探视服务.md"]
+  },
+  {
+    "id": "visit_03",
+    "category": "接送与探视",
+    "question": "我几点可以到店看宠物？",
+    "expected_sources": ["接送与探视服务.md"]
+  },
+  {
+    "id": "feed_01",
+    "category": "喂养与用药",
+    "question": "自带粮食要准备多少？",
+    "expected_sources": ["喂养与自带粮食政策.md"]
+  },
+  {
+    "id": "feed_02",
+    "category": "喂养与用药",
+    "question": "忘记带狗粮，店里能提供吗？",
+    "expected_sources": ["喂养与自带粮食政策.md"]
+  },
+  {
+    "id": "feed_03",
+    "category": "喂养与用药",
+    "question": "能帮忙给猫打胰岛素吗？",
+    "expected_sources": ["喂养与自带粮食政策.md"]
+  },
+  {
+    "id": "care_01",
+    "category": "日常护理",
+    "question": "狗狗每天遛几次，每次多久？",
+    "expected_sources": ["遛弯与运动安排.md"]
+  },
+  {
+    "id": "care_02",
+    "category": "日常护理",
+    "question": "下雨天狗狗还会出去遛弯吗？",
+    "expected_sources": ["遛弯与运动安排.md", "狗狗日常护理规范.md"]
+  },
+  {
+    "id": "care_03",
+    "category": "日常护理",
+    "question": "猫咪新入住后多久不强制互动？",
+    "expected_sources": ["猫咪日常护理规范.md", "猫咪应激管理.md"]
+  },
+  {
+    "id": "care_04",
+    "category": "日常护理",
+    "question": "猫咪躲着超过 12 小时不出来吃饭怎么办？",
+    "expected_sources": ["猫咪日常护理规范.md"]
+  },
+  {
+    "id": "care_05",
+    "category": "日常护理",
+    "question": "初次寄养的狗狗会马上和其他狗一起玩吗？",
+    "expected_sources": ["狗狗日常护理规范.md"]
+  },
+  {
+    "id": "emergency_01",
+    "category": "应急处理",
+    "question": "猫误食巧克力后应该怎么处理？",
+    "expected_sources": ["猫可以吃巧克力吗.md", "误食中毒应急处理.md"]
+  },
+  {
+    "id": "emergency_02",
+    "category": "应急处理",
+    "question": "宠物误食木糖醇会有什么症状？",
+    "expected_sources": ["误食中毒应急处理.md"]
+  },
+  {
+    "id": "emergency_03",
+    "category": "应急处理",
+    "question": "兔子 12 小时不吃也不排便严重吗？",
+    "expected_sources": ["异宠寄养指南.md", "突发疾病与受伤应急流程.md"]
+  },
+  {
+    "id": "emergency_04",
+    "category": "应急处理",
+    "question": "宠物拉黑色柏油样便需要立刻送医吗？",
+    "expected_sources": ["宠物腹泻应急处理.md"]
+  },
+  {
+    "id": "exotic_01",
+    "category": "异宠与幼宠",
+    "question": "仓鼠可以和另一只仓鼠住同一个笼子吗？",
+    "expected_sources": ["异宠寄养指南.md"]
+  },
+  {
+    "id": "exotic_02",
+    "category": "异宠与幼宠",
+    "question": "你们接受蛇类寄养吗？",
+    "expected_sources": ["异宠寄养指南.md"]
+  },
+  {
+    "id": "young_01",
+    "category": "异宠与幼宠",
+    "question": "三个月以下的幼宠一天喂几餐？",
+    "expected_sources": ["幼年宠物寄养注意事项.md"]
+  },
+  {
+    "id": "young_02",
+    "category": "异宠与幼宠",
+    "question": "幼宠寄养期间能洗澡吗？",
+    "expected_sources": ["幼年宠物寄养注意事项.md"]
+  },
+  {
+    "id": "senior_01",
+    "category": "老年宠物",
+    "question": "老年宠物寄养前需要什么体检材料？",
+    "expected_sources": ["老年宠物寄养注意事项.md"]
+  },
+  {
+    "id": "senior_02",
+    "category": "老年宠物",
+    "question": "老年宠物每天会有几次视频汇报？",
+    "expected_sources": ["老年宠物寄养注意事项.md"]
+  },
+  {
+    "id": "agreement_01",
+    "category": "寄养协议",
+    "question": "店方过失造成宠物受伤，怎么赔偿？",
+    "expected_sources": ["寄养协议条款.md"]
+  },
+  {
+    "id": "agreement_02",
+    "category": "寄养协议",
+    "question": "一次最长建议寄养多少天？",
+    "expected_sources": ["寄养协议条款.md"]
+  }
+]

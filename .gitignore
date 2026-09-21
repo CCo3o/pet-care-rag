@@ -1,0 +1,23 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ===== 密钥（重要！绝不提交）=====
+.env
+
+# ===== 数据 =====
+data/vector_store/
+models/
+
+# ===== IDE / 系统 =====
+.vscode/
+.idea/
+.DS_Store
+
+# ===== 本地模拟预订（不提交顾客会话产生的订单）=====
+data/bookings.sqlite3
+data/bookings.sqlite3-journal
+data/bookings.sqlite3-wal
+data/bookings.sqlite3-shm
