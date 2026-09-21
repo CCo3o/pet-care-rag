@@ -17,6 +17,7 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 # bge-small-zh-v1.5：中文效果好、体积小（约 100MB），本地免费运行
 # 已下载到项目 models/ 目录，直接用本地路径，不再依赖网络
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", str(BASE_DIR / "models" / "bge-small-zh-v1.5"))
+EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "pytorch")
 
 # ---- 向量库配置 ----
 CHROMA_DIR = str(BASE_DIR / "data" / "vector_store")

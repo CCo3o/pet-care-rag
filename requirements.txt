@@ -6,8 +6,7 @@ langchain-community>=0.3
 langchain-openai>=0.2
 langchain-chroma>=0.1
 # 与当前 LangChain 0.3.x 兼容；1.x 会要求 langchain-core 1.x。
-langchain-huggingface>=0.1,<0.2
 chromadb>=0.5,<2
-sentence-transformers>=3.0
+fastembed>=0.6
 python-dotenv>=1.0
 pypdf>=4.0

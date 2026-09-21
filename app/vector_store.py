@@ -1,11 +1,12 @@
 """向量化 + 向量存储（闭环的第③④步）"""
+import os
 from typing import List
 
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.embeddings import Embeddings
 
 
-class BgeChineseEmbeddings(HuggingFaceEmbeddings):
+class BgeChineseEmbeddings:
     """保留 BGE 中文模型推荐的「查询指令、文档无指令」编码方式。
 
     ``HuggingFaceBgeEmbeddings`` 已弃用，但通用的
@@ -15,17 +16,41 @@ class BgeChineseEmbeddings(HuggingFaceEmbeddings):
 
     query_instruction: str = "为这个句子生成表示以用于检索相关文章："
 
+    def __init__(self, model_name: str):
+        # 延迟导入：云端的 ONNX 部署不安装 PyTorch / sentence-transformers。
+        from langchain_huggingface import HuggingFaceEmbeddings
+        self._embedding = HuggingFaceEmbeddings(
+            model_name=model_name,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self._embedding.embed_documents(texts)
+
     def embed_query(self, text: str) -> List[float]:
-        return super().embed_query(f"{self.query_instruction}{text}")
+        return self._embedding.embed_query(f"{self.query_instruction}{text}")
+
+
+class FastEmbedChineseEmbeddings(Embeddings):
+    """云端轻量向量化：ONNX Runtime 替代 PyTorch，降低容器内存。"""
+
+    def __init__(self, model_name: str):
+        from fastembed import TextEmbedding
+        self.model = TextEmbedding(model_name=model_name)
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [vector.tolist() for vector in self.model.passage_embed(texts)]
+
+    def embed_query(self, text: str) -> List[float]:
+        return next(self.model.query_embed(text)).tolist()
 
 
 def get_embeddings(model_name: str = "BAAI/bge-small-zh-v1.5"):
-    """加载本地 embedding 模型，把文本变成向量。"""
-    return BgeChineseEmbeddings(
-        model_name=model_name,
-        model_kwargs={"device": "cpu"},          # 没有 GPU 也能跑
-        encode_kwargs={"normalize_embeddings": True},  # 归一化，余弦相似度更快
-    )
+    """本地保留 PyTorch 基线；云端可用 EMBEDDING_BACKEND=fastembed 切换 ONNX。"""
+    if os.getenv("EMBEDDING_BACKEND", "pytorch").lower() == "fastembed":
+        return FastEmbedChineseEmbeddings(model_name)
+    return BgeChineseEmbeddings(model_name)
 
 
 def get_vector_store(embeddings, persist_dir: str) -> Chroma:
