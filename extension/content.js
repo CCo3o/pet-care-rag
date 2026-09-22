@@ -89,7 +89,8 @@
       }
     }
   });
-  const chatInput = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')].find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || ''));
+  const inputs = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
+  const chatInput = inputs.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || inputs.find(node => { const rect = node.getBoundingClientRect(); return node.offsetParent !== null && !panel.contains(node) && rect.width > 500 && rect.bottom > window.innerHeight - 260; });
   let chatRoot = chatInput;
   for (let level = 0; chatRoot && level < 8; level += 1) {
     if (chatRoot.clientWidth > 500 && chatRoot.clientHeight > 300) break;
