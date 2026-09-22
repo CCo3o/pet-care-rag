@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    HF_HOME=/app/.cache/huggingface \
+    HOST=0.0.0.0 \
     RETRIEVAL_BACKEND=lightweight
 
 WORKDIR /app
