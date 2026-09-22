@@ -17,6 +17,7 @@
   const status = panel.querySelector('.status');
   const replyBox = panel.querySelector('.reply');
   const processedMessages = new Set();
+  const processedNodes = new WeakSet();
   const watchBox = panel.querySelector('#pet-watch');
   watchBox.onchange = () => { status.textContent = watchBox.checked ? '已开启新消息监听，等待顾客消息……' : '新消息监听已关闭。'; };
   function fillReplyBox(text) {
@@ -101,15 +102,18 @@
   if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
   const initialLines = new Set(String(chatRoot?.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean));
   initialLines.forEach(line => processedMessages.add(line));
-  const incomingTexts = () => {
+  const incomingNodes = () => {
     const selectors = '.chat-item__body-left .xhs-im-bubble__text, .chat-item__body-left [class*="bubble__text"], .chat-item__body-left [class*="bubble-text"]';
-    return [...new Set([...document.querySelectorAll(selectors)].map(node => candidate(node.textContent || '')).filter(Boolean))];
+    return [...document.querySelectorAll(selectors)];
   };
-  incomingTexts().forEach(line => processedMessages.add(line));
+  incomingNodes().forEach(node => processedNodes.add(node));
   window.setInterval(() => {
     if (!panel.querySelector('#pet-watch').checked) return;
-    const lines = incomingTexts();
-    const newest = lines.find(line => !processedMessages.has(line));
-    if (newest) { processedMessages.add(newest); handleQuestion(newest); }
+    const newest = incomingNodes().find(node => !processedNodes.has(node));
+    if (newest) {
+      processedNodes.add(newest);
+      const value = findCandidate(newest.textContent || '');
+      if (value) handleQuestion(value);
+    }
   }, 1500);
 })();
