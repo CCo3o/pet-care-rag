@@ -99,9 +99,11 @@
   if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
   const initialLines = new Set(String(chatRoot?.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean));
   initialLines.forEach(line => processedMessages.add(line));
+  const incomingTexts = () => [...document.querySelectorAll('.chat-item__body-left .xhs-im-bubble__text')].map(node => candidate(node.textContent || '')).filter(Boolean);
+  incomingTexts().forEach(line => processedMessages.add(line));
   window.setInterval(() => {
-    if (!chatRoot || !panel.querySelector('#pet-watch').checked) return;
-    const lines = String(chatRoot.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean);
+    if (!panel.querySelector('#pet-watch').checked) return;
+    const lines = incomingTexts();
     const newest = lines.find(line => !processedMessages.has(line));
     if (newest) { processedMessages.add(newest); handleQuestion(newest); }
   }, 1500);
