@@ -3,8 +3,16 @@
   const API = 'https://pet-care-rag-demo.onrender.com/api/chat';
   const panel = document.createElement('aside');
   panel.id = 'pet-care-assistant';
-  panel.innerHTML = `<header>🐱🐶 宠物寄养智慧客服</header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会标记为可自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
+  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服</span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会标记为可自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
   document.body.appendChild(panel);
+  const header = panel.querySelector('header');
+  const toggle = panel.querySelector('.pet-toggle');
+  toggle.onclick = (event) => { event.stopPropagation(); panel.classList.toggle('collapsed'); toggle.textContent = panel.classList.contains('collapsed') ? '+' : '−'; toggle.title = panel.classList.contains('collapsed') ? '展开' : '收起'; };
+  let dragging = false, offsetX = 0, offsetY = 0;
+  header.onpointerdown = (event) => { if (event.target === toggle) return; dragging = true; const rect = panel.getBoundingClientRect(); offsetX = event.clientX - rect.left; offsetY = event.clientY - rect.top; header.setPointerCapture(event.pointerId); };
+  header.onpointermove = (event) => { if (!dragging) return; panel.style.left = `${Math.max(4, event.clientX - offsetX)}px`; panel.style.top = `${Math.max(4, event.clientY - offsetY)}px`; panel.style.right = 'auto'; panel.style.bottom = 'auto'; };
+  header.onpointerup = () => { if (!dragging) return; dragging = false; localStorage.setItem('pet-care-panel-position', JSON.stringify({left: panel.style.left, top: panel.style.top})); };
+  try { const saved = JSON.parse(localStorage.getItem('pet-care-panel-position') || 'null'); if (saved?.left && saved?.top) { panel.style.left = saved.left; panel.style.top = saved.top; panel.style.right = 'auto'; panel.style.bottom = 'auto'; } } catch (_) {}
   const textarea = panel.querySelector('textarea');
   const status = panel.querySelector('.status');
   const replyBox = panel.querySelector('.reply');
