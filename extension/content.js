@@ -3,7 +3,7 @@
   const API = 'https://pet-care-rag-demo.onrender.com/api/chat';
   const panel = document.createElement('aside');
   panel.id = 'pet-care-assistant';
-  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服</span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
+  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服</span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><label class="auto-send"><input id="pet-watch" type="checkbox"> 自动监听新消息</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
   document.body.appendChild(panel);
   const header = panel.querySelector('header');
   const toggle = panel.querySelector('.pet-toggle');
@@ -16,6 +16,7 @@
   const textarea = panel.querySelector('textarea');
   const status = panel.querySelector('.status');
   const replyBox = panel.querySelector('.reply');
+  const processedMessages = new Set();
   function fillReplyBox(text) {
     const candidates = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
     const target = candidates.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || candidates.find(node => node.offsetParent !== null && node !== textarea);
@@ -46,8 +47,7 @@
     return true;
   }
   panel.querySelector('#pet-use-selection').onclick = () => { textarea.value = window.getSelection()?.toString().trim() || ''; };
-  panel.querySelector('#pet-generate').onclick = async () => {
-    const question = textarea.value.trim();
+  async function handleQuestion(question) {
     if (!question) { status.textContent = '请先选中或输入顾客消息。'; return; }
     status.textContent = '正在分析顾客消息，请稍候……'; replyBox.hidden = true;
     try {
@@ -66,5 +66,32 @@
         status.innerHTML += filled ? '<br>回复已填入小红书输入框，请检查后发送。' : '<br>未找到小红书回复框，请手动复制结果。';
       }
     } catch (error) { status.textContent = '助手暂时无法连接：' + error.message; }
+  }
+  panel.querySelector('#pet-generate').onclick = () => handleQuestion(textarea.value.trim());
+  const candidate = text => {
+    const value = text.replace(/\s+/g, ' ').trim();
+    if (value.length < 4 || value.length > 300 || processedMessages.has(value)) return null;
+    if (!/[猫狗犬寄养预订预定预约价格多少钱位置房间入住可以需要吗？?]/.test(value)) return null;
+    return value;
   };
+  const observer = new MutationObserver(mutations => {
+    if (!panel.querySelector('#pet-watch').checked) return;
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE || panel.contains(node)) continue;
+        const value = candidate(node.innerText || node.textContent || '');
+        if (!value) continue;
+        processedMessages.add(value);
+        window.setTimeout(() => handleQuestion(value), 400);
+        return;
+      }
+    }
+  });
+  const chatInput = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')].find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || ''));
+  let chatRoot = chatInput;
+  for (let level = 0; chatRoot && level < 8; level += 1) {
+    if (chatRoot.clientWidth > 500 && chatRoot.clientHeight > 300) break;
+    chatRoot = chatRoot.parentElement;
+  }
+  if (chatRoot) observer.observe(chatRoot, {childList:true, subtree:true});
 })();
