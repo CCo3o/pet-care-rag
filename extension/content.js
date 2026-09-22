@@ -24,12 +24,18 @@
   // retain the last text per node instead and only queue an actual transition.
   const nodeSnapshots = new WeakMap();
   const handledNodeTexts = new WeakMap();
+  let sequenceSnapshot = null;
+  let lastIncomingCount = null;
   const watchBox = panel.querySelector('#pet-watch');
   watchBox.onchange = () => {
     if (!watchBox.checked) {
       status.textContent = `新消息监听已关闭（${BUILD}）。`;
       return;
     }
+    // Establish a fresh baseline at the moment the merchant opts in.  This
+    // prevents messages that arrived while the checkbox was off from being
+    // replayed as if they were new.
+    scanIncoming(false);
     const count = incomingNodes().length;
     status.textContent = `已开启新消息监听（${BUILD}），已识别 ${count} 条顾客消息，等待新消息……`;
   };
@@ -103,8 +109,13 @@
     chatRoot = chatRoot.parentElement;
   }
   const incomingNodes = () => {
-    const selectors = '.chat-item__body-left .xhs-im-bubble__text, .chat-item__body-left [class*="bubble__text"], .chat-item__body-left [class*="bubble-text"]';
-    return [...document.querySelectorAll(selectors)];
+    // Prefer the exact paragraph class from the current Xiaohongshu DOM.  A
+    // broad fallback is only used on older layouts; otherwise the wrapper and
+    // its paragraph would both be returned and trigger duplicate replies.
+    const exact = [...document.querySelectorAll('.chat-item__body-left .xhs-im-bubble__text')];
+    if (exact.length) return exact;
+    const fallback = [...document.querySelectorAll('.chat-item__body-left [class*="bubble__text"], .chat-item__body-left [class*="bubble-text"]')];
+    return fallback.filter(node => !fallback.some(parent => parent !== node && parent.contains(node)));
   };
   const normalizeNodeText = node => String(node?.textContent || '').replace(/\s+/g, ' ').trim();
   const handledTextsFor = node => {
@@ -128,8 +139,36 @@
   };
   const scanIncoming = (allowTrigger = watchBox.checked) => {
     const nodes = incomingNodes();
+    const texts = nodes.map(normalizeNodeText);
+    const previousSequence = sequenceSnapshot;
+    sequenceSnapshot = texts;
+    if (allowTrigger && lastIncomingCount !== null && nodes.length !== lastIncomingCount) {
+      status.textContent = `检测到消息列表变化（当前 ${nodes.length} 条），正在识别……`;
+    }
+    lastIncomingCount = nodes.length;
+
+    // If Vue rebuilt every DOM node, node-based detection alone would treat
+    // the entire history as new.  Only accept an appended tail or a change in
+    // the final message when the ordered text snapshot confirms it.
+    let allowedIndexes = null;
+    if (allowTrigger && previousSequence) {
+      const samePrefix = previousSequence.length <= texts.length && previousSequence.every((value, index) => value === texts[index]);
+      if (samePrefix) {
+        allowedIndexes = new Set();
+        for (let index = previousSequence.length; index < texts.length; index += 1) allowedIndexes.add(index);
+      } else if (previousSequence.length === texts.length) {
+        const firstDiff = texts.findIndex((value, index) => value !== previousSequence[index]);
+        // A reused node normally changes only the newest (tail) message.  Do
+        // not answer old messages after an unrelated list reorder.
+        if (firstDiff >= Math.max(0, texts.length - 2)) allowedIndexes = new Set([firstDiff]);
+        else allowedIndexes = new Set();
+      } else {
+        allowedIndexes = new Set();
+      }
+    }
     for (const node of nodes) {
       if (panel.contains(node)) continue;
+      const index = nodes.indexOf(node);
       const text = normalizeNodeText(node);
       if (!text) continue;
       const previous = nodeSnapshots.get(node);
@@ -137,7 +176,7 @@
       if (!allowTrigger) continue;
       // A missing snapshot means a genuinely added message node.  A changed
       // snapshot means Xiaohongshu reused the node for a newly received text.
-      if (previous === undefined || previous !== text) queueIncomingNode(node, text);
+      if ((previous === undefined || previous !== text) && (!allowedIndexes || allowedIndexes.has(index))) queueIncomingNode(node, text);
     }
     return nodes.length;
   };
