@@ -3,7 +3,7 @@
   const API = 'https://pet-care-rag-demo.onrender.com/api/chat';
   const panel = document.createElement('aside');
   panel.id = 'pet-care-assistant';
-  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服</span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会标记为可自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
+  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服</span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
   document.body.appendChild(panel);
   const header = panel.querySelector('header');
   const toggle = panel.querySelector('.pet-toggle');
@@ -19,7 +19,7 @@
   function fillReplyBox(text) {
     const candidates = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
     const target = candidates.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || candidates.find(node => node.offsetParent !== null && node !== textarea);
-    if (!target) return false;
+    if (!target) return null;
     target.focus();
     if (target.isContentEditable) {
       target.textContent = text;
@@ -30,7 +30,17 @@
       target.dispatchEvent(new Event('input', {bubbles:true}));
       target.dispatchEvent(new Event('change', {bubbles:true}));
     }
-    return true;
+    return target;
+  }
+  function clickXhsSendButton(input) {
+    if (!input) return false;
+    let scope = input;
+    for (let level = 0; level < 6 && scope; level += 1, scope = scope.parentElement) {
+      const buttons = [...scope.querySelectorAll('button,[role="button"]')].filter(node => node.offsetParent !== null && !panel.contains(node));
+      const send = buttons.find(node => /发送/.test((node.textContent || '').trim()) || /发送/.test(node.getAttribute('aria-label') || '') || /发送/.test(node.getAttribute('title') || ''));
+      if (send) { send.click(); return true; }
+    }
+    return false;
   }
   panel.querySelector('#pet-use-selection').onclick = () => { textarea.value = window.getSelection()?.toString().trim() || ''; };
   panel.querySelector('#pet-generate').onclick = async () => {
@@ -46,7 +56,12 @@
       const answer = data.answer || data.error;
       replyBox.textContent = answer; replyBox.hidden = false;
       const filled = fillReplyBox(answer);
-      status.innerHTML += filled ? '<br>回复已填入小红书输入框，请检查后发送。' : '<br>未找到小红书回复框，请手动复制结果。';
+      if (filled && !important && panel.querySelector('#pet-auto-send').checked) {
+        const sent = clickXhsSendButton(filled);
+        status.innerHTML += sent ? '<br>普通问题已自动发送。' : '<br>已填入回复框，但未找到发送按钮，请手动发送。';
+      } else {
+        status.innerHTML += filled ? '<br>回复已填入小红书输入框，请检查后发送。' : '<br>未找到小红书回复框，请手动复制结果。';
+      }
     } catch (error) { status.textContent = '助手暂时无法连接：' + error.message; }
   };
 })();
