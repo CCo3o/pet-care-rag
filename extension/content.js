@@ -97,4 +97,12 @@
     chatRoot = chatRoot.parentElement;
   }
   if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
+  const initialLines = new Set(String(chatRoot?.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean));
+  initialLines.forEach(line => processedMessages.add(line));
+  window.setInterval(() => {
+    if (!chatRoot || !panel.querySelector('#pet-watch').checked) return;
+    const lines = String(chatRoot.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean);
+    const newest = lines.find(line => !processedMessages.has(line));
+    if (newest) { processedMessages.add(newest); handleQuestion(newest); }
+  }, 1500);
 })();
