@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "宠物寄养智慧客服",
+  "version": "0.1.0",
+  "description": "在商家浏览器中调用宠物寄养知识库、报价和档期助手。",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.xiaohongshu.com/*", "https://pet-care-rag-demo.onrender.com/*"],
+  "content_scripts": [{
+    "matches": ["https://www.xiaohongshu.com/*"],
+    "js": ["content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
+}

@@ -47,9 +47,19 @@ ASSISTANT = None
 
 
 class Handler(BaseHTTPRequestHandler):
+    ALLOWED_ORIGINS = {'https://www.xiaohongshu.com', 'http://127.0.0.1:8000', 'http://localhost:8000'}
+
     def send_body(self, body, content_type='text/html; charset=utf-8', status=200):
         data = body.encode('utf-8') if isinstance(body, str) else body
-        self.send_response(status); self.send_header('Content-Type', content_type); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+        self.send_response(status); self.send_header('Content-Type', content_type)
+        origin = self.headers.get('Origin')
+        if origin in self.ALLOWED_ORIGINS: self.send_header('Access-Control-Allow-Origin', origin); self.send_header('Vary', 'Origin')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type'); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+
+    def do_OPTIONS(self):
+        self.send_response(204); origin = self.headers.get('Origin')
+        if origin in self.ALLOWED_ORIGINS: self.send_header('Access-Control-Allow-Origin', origin); self.send_header('Vary', 'Origin')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS'); self.send_header('Access-Control-Allow-Headers', 'Content-Type'); self.end_headers()
 
     def do_GET(self):
         if self.path == '/health':
@@ -66,7 +76,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(json.dumps({'error': '请输入问题'}, ensure_ascii=False), 'application/json; charset=utf-8', 400); return
         try:
             reply = ASSISTANT.reply(str(payload['question']).strip())
-            self.send_body(json.dumps({'answer': terminal_text(reply.answer), 'sources': [Path(s).stem for s in reply.sources]}, ensure_ascii=False), 'application/json; charset=utf-8')
+            question = str(payload['question']).strip()
+            high_risk_terms = ('预订', '预定', '预约', '取消', '退款', '付款', '转账', '生病', '受伤', '用药', '过敏')
+            risk = 'high' if any(term in question for term in high_risk_terms) else 'low'
+            self.send_body(json.dumps({'answer': terminal_text(reply.answer), 'sources': [Path(s).stem for s in reply.sources], 'risk': risk, 'requires_confirmation': risk == 'high'}, ensure_ascii=False), 'application/json; charset=utf-8')
         except (APITimeoutError, APIConnectionError):
             self.send_body(json.dumps({'error': '模型服务暂时无法连接，请稍后重试。'}, ensure_ascii=False), 'application/json; charset=utf-8', 503)
         except APIStatusError as exc:
