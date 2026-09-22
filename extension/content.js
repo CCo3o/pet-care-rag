@@ -1,9 +1,12 @@
 (() => {
   if (document.getElementById('pet-care-assistant')) return;
   const API = 'https://pet-care-rag-demo.onrender.com/api/chat';
+  // Keep a visible build marker so it is easy to verify that Edge reloaded the
+  // current unpacked extension instead of an older copy.
+  const BUILD = 'watch-map-20260922';
   const panel = document.createElement('aside');
   panel.id = 'pet-care-assistant';
-  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服</span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><label class="auto-send"><input id="pet-watch" type="checkbox"> 自动监听新消息</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
+  panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服 <small class="pet-build">${BUILD}</small></span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><label class="auto-send"><input id="pet-watch" type="checkbox"> 自动监听新消息</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
   document.body.appendChild(panel);
   const header = panel.querySelector('header');
   const toggle = panel.querySelector('.pet-toggle');
@@ -16,10 +19,20 @@
   const textarea = panel.querySelector('textarea');
   const status = panel.querySelector('.status');
   const replyBox = panel.querySelector('.reply');
-  const processedMessages = new Set();
-  const processedNodes = new WeakSet();
+  // Message nodes are sometimes reused by Xiaohongshu's Vue renderer.  A
+  // WeakSet therefore misses a new message when the same node's text changes;
+  // retain the last text per node instead and only queue an actual transition.
+  const nodeSnapshots = new WeakMap();
+  const handledNodeTexts = new WeakMap();
   const watchBox = panel.querySelector('#pet-watch');
-  watchBox.onchange = () => { status.textContent = watchBox.checked ? '已开启新消息监听，等待顾客消息……' : '新消息监听已关闭。'; };
+  watchBox.onchange = () => {
+    if (!watchBox.checked) {
+      status.textContent = `新消息监听已关闭（${BUILD}）。`;
+      return;
+    }
+    const count = incomingNodes().length;
+    status.textContent = `已开启新消息监听（${BUILD}），已识别 ${count} 条顾客消息，等待新消息……`;
+  };
   function fillReplyBox(text) {
     const candidates = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
     const target = candidates.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || candidates.find(node => node.offsetParent !== null && node !== textarea);
@@ -50,15 +63,17 @@
     return true;
   }
   panel.querySelector('#pet-use-selection').onclick = () => { textarea.value = window.getSelection()?.toString().trim() || ''; };
-  async function handleQuestion(question) {
+  async function handleQuestion(question, context = {}) {
     if (!question) { status.textContent = '请先选中或输入顾客消息。'; return; }
-    status.textContent = '正在分析顾客消息，请稍候……'; replyBox.hidden = true;
+    const prefix = context.auto ? `检测到新消息：“${question.slice(0, 32)}${question.length > 32 ? '…' : ''}”` : '';
+    status.textContent = prefix ? `${prefix}\n正在请求助手，请稍候……` : '正在分析顾客消息，请稍候……';
+    replyBox.hidden = true;
     try {
       const response = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '服务暂时不可用');
       const important = data.requires_confirmation;
-      status.innerHTML = important ? '<span class="risk-high">重要操作：需要商家确认后发送</span>' : '<span class="risk-low">普通咨询：可以按店铺规则自动回复</span>';
+      status.innerHTML = (prefix ? `${prefix}<br>` : '') + (important ? '<span class="risk-high">重要操作：需要商家确认后发送</span>' : '<span class="risk-low">普通咨询：可以按店铺规则自动回复</span>');
       const answer = data.answer || data.error;
       replyBox.textContent = answer; replyBox.hidden = false;
       const filled = fillReplyBox(answer);
@@ -68,30 +83,18 @@
       } else {
         status.innerHTML += filled ? '<br>回复已填入小红书输入框，请检查后发送。' : '<br>未找到小红书回复框，请手动复制结果。';
       }
-    } catch (error) { status.textContent = '助手暂时无法连接：' + error.message; }
+    } catch (error) {
+      status.textContent = `${prefix ? `${prefix}\n` : ''}助手暂时无法连接：${error.message}`;
+    }
   }
   panel.querySelector('#pet-generate').onclick = () => handleQuestion(textarea.value.trim());
   const candidate = text => {
     const value = text.replace(/\s+/g, ' ').trim();
-    if (value.length < 4 || value.length > 300 || processedMessages.has(value)) return null;
+    if (value.length < 4 || value.length > 300) return null;
     if (!/[猫狗犬寄养预订预定预约价格多少钱位置房间入住可以需要吗？?]/.test(value)) return null;
     return value;
   };
   const findCandidate = text => String(text).split(/\n+/).map(line => candidate(line)).filter(Boolean).pop();
-  const observer = new MutationObserver(mutations => {
-    if (!panel.querySelector('#pet-watch').checked) return;
-    for (const mutation of mutations) {
-      const nodes = mutation.type === 'characterData' ? [mutation.target.parentElement] : [...mutation.addedNodes];
-      for (const node of nodes) {
-        if (!node || panel.contains(node)) continue;
-        const value = findCandidate(node.innerText || node.textContent || '');
-        if (!value) continue;
-        processedMessages.add(value);
-        window.setTimeout(() => handleQuestion(value), 400);
-        return;
-      }
-    }
-  });
   const inputs = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
   const chatInput = inputs.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || inputs.find(node => { const rect = node.getBoundingClientRect(); return node.offsetParent !== null && !panel.contains(node) && rect.width > 500 && rect.bottom > window.innerHeight - 260; });
   let chatRoot = chatInput;
@@ -99,21 +102,57 @@
     if (chatRoot.clientWidth > 500 && chatRoot.clientHeight > 300) break;
     chatRoot = chatRoot.parentElement;
   }
-  if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
-  const initialLines = new Set(String(chatRoot?.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean));
-  initialLines.forEach(line => processedMessages.add(line));
   const incomingNodes = () => {
     const selectors = '.chat-item__body-left .xhs-im-bubble__text, .chat-item__body-left [class*="bubble__text"], .chat-item__body-left [class*="bubble-text"]';
     return [...document.querySelectorAll(selectors)];
   };
-  incomingNodes().forEach(node => processedNodes.add(node));
-  window.setInterval(() => {
-    if (!panel.querySelector('#pet-watch').checked) return;
-    const newest = incomingNodes().find(node => !processedNodes.has(node));
-    if (newest) {
-      processedNodes.add(newest);
-      const value = findCandidate(newest.textContent || '');
-      if (value) handleQuestion(value);
+  const normalizeNodeText = node => String(node?.textContent || '').replace(/\s+/g, ' ').trim();
+  const handledTextsFor = node => {
+    let texts = handledNodeTexts.get(node);
+    if (!texts) { texts = new Set(); handledNodeTexts.set(node, texts); }
+    return texts;
+  };
+  const queueIncomingNode = (node, text) => {
+    const value = findCandidate(text);
+    if (!value) return;
+    const handled = handledTextsFor(node);
+    if (handled.has(value)) return;
+    handled.add(value);
+    // MutationObserver and the polling fallback can see the same transition;
+    // recording this node/text before scheduling prevents duplicate API calls
+    // while a repeated question in a different node still works.
+    status.textContent = `检测到新消息：“${value.slice(0, 32)}${value.length > 32 ? '…' : ''}”\n正在请求助手，请稍候……`;
+    window.setTimeout(() => {
+      handleQuestion(value, {auto: true});
+    }, 250);
+  };
+  const scanIncoming = (allowTrigger = watchBox.checked) => {
+    const nodes = incomingNodes();
+    for (const node of nodes) {
+      if (panel.contains(node)) continue;
+      const text = normalizeNodeText(node);
+      if (!text) continue;
+      const previous = nodeSnapshots.get(node);
+      nodeSnapshots.set(node, text);
+      if (!allowTrigger) continue;
+      // A missing snapshot means a genuinely added message node.  A changed
+      // snapshot means Xiaohongshu reused the node for a newly received text.
+      if (previous === undefined || previous !== text) queueIncomingNode(node, text);
     }
+    return nodes.length;
+  };
+  // Baseline all messages already rendered so enabling the watcher does not
+  // answer the conversation history.  The scan below keeps snapshots current
+  // even while the checkbox is off.
+  scanIncoming(false);
+  const observer = new MutationObserver(() => {
+    if (watchBox.checked) scanIncoming(true);
+    else scanIncoming(false);
+  });
+  if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
+  window.setInterval(() => {
+    // Polling is intentional: Xiaohongshu can update text in a virtualized
+    // list without emitting a useful mutation on the observed composer root.
+    scanIncoming(watchBox.checked);
   }, 1500);
 })();
