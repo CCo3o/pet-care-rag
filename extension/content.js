@@ -17,6 +17,8 @@
   const status = panel.querySelector('.status');
   const replyBox = panel.querySelector('.reply');
   const processedMessages = new Set();
+  const watchBox = panel.querySelector('#pet-watch');
+  watchBox.onchange = () => { status.textContent = watchBox.checked ? '已开启新消息监听，等待顾客消息……' : '新消息监听已关闭。'; };
   function fillReplyBox(text) {
     const candidates = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
     const target = candidates.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || candidates.find(node => node.offsetParent !== null && node !== textarea);
@@ -99,7 +101,10 @@
   if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
   const initialLines = new Set(String(chatRoot?.innerText || '').split(/\n+/).map(line => candidate(line)).filter(Boolean));
   initialLines.forEach(line => processedMessages.add(line));
-  const incomingTexts = () => [...document.querySelectorAll('.chat-item__body-left .xhs-im-bubble__text')].map(node => candidate(node.textContent || '')).filter(Boolean);
+  const incomingTexts = () => {
+    const selectors = '.chat-item__body-left .xhs-im-bubble__text, .chat-item__body-left [class*="bubble__text"], .chat-item__body-left [class*="bubble-text"]';
+    return [...new Set([...document.querySelectorAll(selectors)].map(node => candidate(node.textContent || '')).filter(Boolean))];
+  };
   incomingTexts().forEach(line => processedMessages.add(line));
   window.setInterval(() => {
     if (!panel.querySelector('#pet-watch').checked) return;
