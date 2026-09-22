@@ -109,13 +109,14 @@
     chatRoot = chatRoot.parentElement;
   }
   const incomingNodes = () => {
-    // Prefer the exact paragraph class from the current Xiaohongshu DOM.  A
-    // broad fallback is only used on older layouts; otherwise the wrapper and
-    // its paragraph would both be returned and trigger duplicate replies.
-    const exact = [...document.querySelectorAll('.chat-item__body-left .xhs-im-bubble__text')];
+    // Xiaohongshu changes the parent classes between chat layouts.  Prefer the
+    // stable bubble-text class, then fall back to bubble/message text nodes.
+    const isIncoming = node => node.closest('[class*="left"], [class*="other"], [class*="receive"], [class*="incoming"]');
+    const exact = [...document.querySelectorAll('.xhs-im-bubble__text, [class*="xhs-im-bubble__text"]')].filter(isIncoming);
     if (exact.length) return exact;
-    const fallback = [...document.querySelectorAll('.chat-item__body-left [class*="bubble__text"], .chat-item__body-left [class*="bubble-text"]')];
-    return fallback.filter(node => !fallback.some(parent => parent !== node && parent.contains(node)));
+    const fallback = [...document.querySelectorAll('[class*="bubble__text"], [class*="bubble-text"], [class*="message-text"], [class*="bubble"] p')];
+    const leaves = fallback.filter(node => !fallback.some(parent => parent !== node && parent.contains(node)));
+    return leaves.filter(isIncoming);
   };
   const normalizeNodeText = node => String(node?.textContent || '').replace(/\s+/g, ' ').trim();
   const handledTextsFor = node => {
