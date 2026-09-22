@@ -40,7 +40,10 @@
       const send = buttons.find(node => /发送/.test((node.textContent || '').trim()) || /发送/.test(node.getAttribute('aria-label') || '') || /发送/.test(node.getAttribute('title') || ''));
       if (send) { send.click(); return true; }
     }
-    return false;
+    // 小红书部分版本没有文字“发送”按钮，而是回车发送。
+    input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true}));
+    input.dispatchEvent(new KeyboardEvent('keyup', {key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true}));
+    return true;
   }
   panel.querySelector('#pet-use-selection').onclick = () => { textarea.value = window.getSelection()?.toString().trim() || ''; };
   panel.querySelector('#pet-generate').onclick = async () => {
