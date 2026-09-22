@@ -3,7 +3,7 @@
   const API = 'https://pet-care-rag-demo.onrender.com/api/chat';
   // Keep a visible build marker so it is easy to verify that Edge reloaded the
   // current unpacked extension instead of an older copy.
-  const BUILD = 'watch-map-20260922';
+  const BUILD = 'bubble-fallback-20260922';
   const panel = document.createElement('aside');
   panel.id = 'pet-care-assistant';
   panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服 <small class="pet-build">${BUILD}</small></span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><label class="auto-send"><input id="pet-watch" type="checkbox"> 自动监听新消息</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
