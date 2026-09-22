@@ -74,12 +74,14 @@
     if (!/[猫狗犬寄养预订预定预约价格多少钱位置房间入住可以需要吗？?]/.test(value)) return null;
     return value;
   };
+  const findCandidate = text => String(text).split(/\n+/).map(line => candidate(line)).filter(Boolean).pop();
   const observer = new MutationObserver(mutations => {
     if (!panel.querySelector('#pet-watch').checked) return;
     for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE || panel.contains(node)) continue;
-        const value = candidate(node.innerText || node.textContent || '');
+      const nodes = mutation.type === 'characterData' ? [mutation.target.parentElement] : [...mutation.addedNodes];
+      for (const node of nodes) {
+        if (!node || panel.contains(node)) continue;
+        const value = findCandidate(node.innerText || node.textContent || '');
         if (!value) continue;
         processedMessages.add(value);
         window.setTimeout(() => handleQuestion(value), 400);
@@ -93,5 +95,5 @@
     if (chatRoot.clientWidth > 500 && chatRoot.clientHeight > 300) break;
     chatRoot = chatRoot.parentElement;
   }
-  if (chatRoot) observer.observe(chatRoot, {childList:true, subtree:true});
+  if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
 })();
