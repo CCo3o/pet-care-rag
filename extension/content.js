@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = 'multi-root-20260923';
+  const BUILD = 'dedupe-20260923';
   const existingPanel = document.getElementById('pet-care-assistant');
   if (existingPanel) {
     const existingBuild = existingPanel.querySelector('.pet-build')?.textContent || '';
@@ -198,7 +198,7 @@
     // Vue rerenders and the polling fallback can expose the same message as
     // different DOM nodes.  Suppress only a short-lived duplicate; the same
     // question can still be answered again later.
-    if (lastQueued && now - lastQueued < 15000) return;
+    if (lastQueued && now - lastQueued < 5000) return;
     recentAutoQuestions.set(fingerprint, now);
     for (const [key, timestamp] of recentAutoQuestions) if (now - timestamp > 30000) recentAutoQuestions.delete(key);
     const handled = handledTextsFor(node);
