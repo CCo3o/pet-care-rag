@@ -1,9 +1,18 @@
 (() => {
-  if (document.getElementById('pet-care-assistant')) return;
+  const BUILD = 'multi-root-20260923';
+  const existingPanel = document.getElementById('pet-care-assistant');
+  if (existingPanel) {
+    const existingBuild = existingPanel.querySelector('.pet-build')?.textContent || '';
+    if (existingBuild !== BUILD) {
+      const oldWatcher = existingPanel.querySelector('#pet-watch');
+      if (oldWatcher) oldWatcher.checked = false;
+      existingPanel.remove();
+    }
+    else return;
+  }
   const API = 'https://pet-care-rag-demo.onrender.com/api/chat';
   // Keep a visible build marker so it is easy to verify that Edge reloaded the
   // current unpacked extension instead of an older copy.
-  const BUILD = 'bubble-fallback-20260922';
   const panel = document.createElement('aside');
   panel.id = 'pet-care-assistant';
   panel.innerHTML = `<header><span>🐱🐶 宠物寄养智慧客服 <small class="pet-build">${BUILD}</small></span><button class="pet-toggle" title="收起">−</button></header><main><textarea placeholder="先选中顾客消息，或直接粘贴到这里"></textarea><label class="auto-send"><input id="pet-auto-send" type="checkbox" checked> 普通问题自动发送</label><label class="auto-send"><input id="pet-watch" type="checkbox"> 自动监听新消息</label><div><button id="pet-generate">生成回复</button><button class="secondary" id="pet-use-selection">读取选中文本</button></div><div class="status">普通咨询会自动回复；预订、取消、付款和健康问题需要人工确认。</div><div class="reply" hidden></div></main>`;
@@ -37,10 +46,11 @@
     // replayed as if they were new.
     scanIncoming(false);
     const count = incomingNodes().length;
-    status.textContent = `已开启新消息监听（${BUILD}），已识别 ${count} 条顾客消息，等待新消息……`;
+    const raw = queryAllRoots('.xhs-im-bubble__text, [class*="xhs-im-bubble__text"]').length;
+    status.textContent = `已开启新消息监听（${BUILD}），匹配 ${count} 条（原始 ${raw}，搜索层 ${searchRoots().length}），等待新消息……`;
   };
   function fillReplyBox(text) {
-    const candidates = [...document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')];
+    const candidates = queryAllRoots('textarea, [contenteditable="true"], input[type="text"]');
     const target = candidates.find(node => /发消息|回复|输入/.test(node.getAttribute('placeholder') || node.getAttribute('aria-label') || '')) || candidates.find(node => node.offsetParent !== null && node !== textarea);
     if (!target) return null;
     target.focus();
@@ -108,13 +118,67 @@
     if (chatRoot.clientWidth > 500 && chatRoot.clientHeight > 300) break;
     chatRoot = chatRoot.parentElement;
   }
+  let cachedRoots = null;
+  let cachedRootsAt = 0;
+  const searchRoots = () => {
+    if (cachedRoots && Date.now() - cachedRootsAt < 1000) return cachedRoots;
+    const roots = [document];
+    const queue = [document];
+    const seen = new Set(queue);
+    while (queue.length) {
+      const root = queue.shift();
+      for (const element of root.querySelectorAll?.('*') || []) {
+        const nested = element.shadowRoot;
+        if (nested && !seen.has(nested)) { seen.add(nested); roots.push(nested); queue.push(nested); }
+        if (element.tagName === 'IFRAME') {
+          try {
+            const frame = element.contentDocument;
+            if (frame && !seen.has(frame)) { seen.add(frame); roots.push(frame); queue.push(frame); }
+          } catch (_) { /* cross-origin frame; it cannot be inspected */ }
+        }
+      }
+    }
+    cachedRoots = roots;
+    cachedRootsAt = Date.now();
+    return roots;
+  };
+  const queryAllRoots = selector => {
+    const result = new Set();
+    for (const root of searchRoots()) for (const node of root.querySelectorAll(selector)) result.add(node);
+    return [...result];
+  };
+  const hasIncomingMarker = node => {
+    let current = node;
+    for (let level = 0; current && level < 16; level += 1) {
+      const classes = current.getAttribute?.('class') || '';
+      if (/(chat-item[^ ]*[-_]left|bubble[^ ]*[-_](left|other)|message[^ ]*[-_](left|other)|incoming|receive)/i.test(classes)) return true;
+      current = current.parentElement || current.host;
+    }
+    current = node;
+    for (let level = 0; current && level < 16; level += 1) {
+      const classes = current.getAttribute?.('class') || '';
+      if (/(chat-item[^ ]*[-_]right|bubble[^ ]*[-_](right|self|mine)|message[^ ]*[-_](right|self|mine)|outgoing|sent)/i.test(classes)) return false;
+      current = current.parentElement || current.host;
+    }
+    // Some layouts omit direction classes.  In those layouts incoming bubbles
+    // are on the left of the composer/chat pane, while merchant bubbles are on
+    // the right.  Use geometry only for elements that already look like a
+    // message bubble, never for arbitrary page text.
+    const rect = node.getBoundingClientRect?.();
+    const composer = queryAllRoots('textarea, [contenteditable="true"], input[type="text"]')
+      .filter(input => !panel.contains(input) && input.offsetParent !== null)
+      .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
+    if (!rect || !composer) return false;
+    const composerRect = composer.getBoundingClientRect();
+    return rect.left < composerRect.left + composerRect.width / 2;
+  };
   const incomingNodes = () => {
     // Xiaohongshu changes the parent classes between chat layouts.  Prefer the
     // stable bubble-text class, then fall back to bubble/message text nodes.
-    const isIncoming = node => node.closest('[class*="left"], [class*="other"], [class*="receive"], [class*="incoming"]');
-    const exact = [...document.querySelectorAll('.xhs-im-bubble__text, [class*="xhs-im-bubble__text"]')].filter(isIncoming);
+    const isIncoming = node => hasIncomingMarker(node);
+    const exact = queryAllRoots('.xhs-im-bubble__text, [class*="xhs-im-bubble__text"]').filter(isIncoming);
     if (exact.length) return exact;
-    const fallback = [...document.querySelectorAll('[class*="bubble__text"], [class*="bubble-text"], [class*="message-text"], [class*="bubble"] p')];
+    const fallback = queryAllRoots('[class*="bubble__text"], [class*="bubble-text"], [class*="message-text"], [class*="bubble"] p');
     const leaves = fallback.filter(node => !fallback.some(parent => parent !== node && parent.contains(node)));
     return leaves.filter(isIncoming);
   };
@@ -186,10 +250,10 @@
   // even while the checkbox is off.
   scanIncoming(false);
   const observer = new MutationObserver(() => {
-    if (watchBox.checked) scanIncoming(true);
-    else scanIncoming(false);
+    window.clearTimeout(observer._scanTimer);
+    observer._scanTimer = window.setTimeout(() => scanIncoming(watchBox.checked), 120);
   });
-  if (chatRoot) observer.observe(chatRoot, {childList:true, characterData:true, subtree:true});
+  observer.observe(document.body, {childList:true, characterData:true, subtree:true});
   window.setInterval(() => {
     // Polling is intentional: Xiaohongshu can update text in a virtualized
     // list without emitting a useful mutation on the observed composer root.
