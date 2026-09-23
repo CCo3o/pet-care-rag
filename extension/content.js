@@ -33,6 +33,7 @@
   // retain the last text per node instead and only queue an actual transition.
   const nodeSnapshots = new WeakMap();
   const handledNodeTexts = new WeakMap();
+  const recentAutoQuestions = new Map();
   let sequenceSnapshot = null;
   let lastIncomingCount = null;
   const watchBox = panel.querySelector('#pet-watch');
@@ -191,6 +192,15 @@
   const queueIncomingNode = (node, text) => {
     const value = findCandidate(text);
     if (!value) return;
+    const fingerprint = value.replace(/\s+/g, ' ').trim().toLowerCase();
+    const now = Date.now();
+    const lastQueued = recentAutoQuestions.get(fingerprint);
+    // Vue rerenders and the polling fallback can expose the same message as
+    // different DOM nodes.  Suppress only a short-lived duplicate; the same
+    // question can still be answered again later.
+    if (lastQueued && now - lastQueued < 15000) return;
+    recentAutoQuestions.set(fingerprint, now);
+    for (const [key, timestamp] of recentAutoQuestions) if (now - timestamp > 30000) recentAutoQuestions.delete(key);
     const handled = handledTextsFor(node);
     if (handled.has(value)) return;
     handled.add(value);
