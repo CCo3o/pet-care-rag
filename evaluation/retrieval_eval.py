@@ -129,6 +129,9 @@ def render_report(results: list[dict], k: int, chunk_count: int) -> str:
 
 
 def main():
+    # Windows PowerShell may use GBK by default; keep report output printable.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="宠物寄养 RAG 检索评测（不调用 LLM）")
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES_PATH, help="评测题 JSON 文件")
     parser.add_argument("--k", type=int, default=TOP_K, help="检索 top-k")
