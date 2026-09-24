@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sqlite3
+import time
+from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Lock
 from pathlib import Path
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError
@@ -16,6 +20,40 @@ from app.display import terminal_text
 from app.config import CHROMA_DIR, DOCS_DIR, CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, TOP_K
 from app.lightweight_retrieval import LightweightRetriever
 from app.retrieval import PROMPT_TEMPLATE, create_llm, create_retriever
+
+
+LOGGER = logging.getLogger("pet-care.web")
+RATE_LIMIT_PER_MINUTE = max(1, int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")))
+RATE_WINDOW_SECONDS = 60.0
+RATE_STATE: dict[str, deque[float]] = defaultdict(deque)
+RATE_LOCK = Lock()
+METRICS = {"requests": 0, "successes": 0, "errors": 0, "rate_limited": 0, "latency_ms_total": 0.0}
+METRICS_LOCK = Lock()
+
+
+def allow_request(client_key: str) -> bool:
+    """Small in-memory guard for the demo service; production should use Redis/API gateway."""
+    now = time.monotonic()
+    with RATE_LOCK:
+        bucket = RATE_STATE[client_key]
+        while bucket and now - bucket[0] >= RATE_WINDOW_SECONDS:
+            bucket.popleft()
+        if len(bucket) >= RATE_LIMIT_PER_MINUTE:
+            return False
+        bucket.append(now)
+        return True
+
+
+def record_metric(status: int, elapsed_ms: float) -> None:
+    with METRICS_LOCK:
+        METRICS["requests"] += 1
+        METRICS["latency_ms_total"] += elapsed_ms
+        if status == 429:
+            METRICS["rate_limited"] += 1
+        elif status >= 400:
+            METRICS["errors"] += 1
+        else:
+            METRICS["successes"] += 1
 
 
 def build_assistant():
@@ -56,6 +94,13 @@ class Handler(BaseHTTPRequestHandler):
         if origin in self.ALLOWED_ORIGINS: self.send_header('Access-Control-Allow-Origin', origin); self.send_header('Vary', 'Origin')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type'); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
 
+    def send_json(self, payload, status=200):
+        self.send_body(json.dumps(payload, ensure_ascii=False), 'application/json; charset=utf-8', status)
+
+    def client_key(self):
+        forwarded = self.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+        return forwarded or (self.client_address[0] if self.client_address else 'unknown')
+
     def do_OPTIONS(self):
         self.send_response(204); origin = self.headers.get('Origin')
         if origin in self.ALLOWED_ORIGINS: self.send_header('Access-Control-Allow-Origin', origin); self.send_header('Vary', 'Origin')
@@ -63,29 +108,56 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/health':
-            self.send_body(json.dumps({'status': 'ok'}), 'application/json; charset=utf-8')
+            self.send_json({'status': 'ok'})
+        elif self.path == '/metrics':
+            with METRICS_LOCK:
+                metrics = dict(METRICS)
+            metrics['latency_ms_avg'] = round(metrics['latency_ms_total'] / metrics['requests'], 2) if metrics['requests'] else 0.0
+            metrics.pop('latency_ms_total', None)
+            self.send_json(metrics)
         else:
             self.send_body(HTML if self.path == '/' else 'Not Found', status=200 if self.path == '/' else 404)
 
     def do_POST(self):
         global ASSISTANT
-        length = int(self.headers.get('Content-Length', 0)); payload = json.loads(self.rfile.read(length) or b'{}')
+        started = time.perf_counter()
+        if self.path == '/api/chat' and not allow_request(self.client_key()):
+            record_metric(429, (time.perf_counter() - started) * 1000)
+            self.send_json({'error': '请求过于频繁，请稍后再试。'}, 429)
+            return
+        length = int(self.headers.get('Content-Length', 0))
+        try:
+            payload = json.loads(self.rfile.read(length) or b'{}')
+        except (TypeError, ValueError):
+            record_metric(400, (time.perf_counter() - started) * 1000)
+            self.send_json({'error': '请求格式无效'}, 400)
+            return
         if self.path == '/api/clear':
-            ASSISTANT.clear(); self.send_body(json.dumps({'ok': True}), 'application/json; charset=utf-8'); return
+            ASSISTANT.clear(); record_metric(200, (time.perf_counter() - started) * 1000); self.send_json({'ok': True}); return
         if self.path != '/api/chat' or not str(payload.get('question', '')).strip():
-            self.send_body(json.dumps({'error': '请输入问题'}, ensure_ascii=False), 'application/json; charset=utf-8', 400); return
+            record_metric(400, (time.perf_counter() - started) * 1000)
+            self.send_json({'error': '请输入问题'}, 400); return
         try:
             reply = ASSISTANT.reply(str(payload['question']).strip())
             question = str(payload['question']).strip()
             high_risk_terms = ('预订', '预定', '预约', '取消', '退款', '付款', '转账', '生病', '受伤', '用药', '过敏')
             risk = 'high' if any(term in question for term in high_risk_terms) else 'low'
-            self.send_body(json.dumps({'answer': terminal_text(reply.answer), 'sources': [Path(s).stem for s in reply.sources], 'risk': risk, 'requires_confirmation': risk == 'high'}, ensure_ascii=False), 'application/json; charset=utf-8')
+            elapsed = (time.perf_counter() - started) * 1000
+            record_metric(200, elapsed)
+            LOGGER.info('chat completed status=200 latency_ms=%.0f', elapsed)
+            self.send_json({'answer': terminal_text(reply.answer), 'sources': [Path(s).stem for s in reply.sources], 'risk': risk, 'requires_confirmation': risk == 'high'})
         except (APITimeoutError, APIConnectionError):
-            self.send_body(json.dumps({'error': '模型服务暂时无法连接，请稍后重试。'}, ensure_ascii=False), 'application/json; charset=utf-8', 503)
+            elapsed = (time.perf_counter() - started) * 1000
+            record_metric(503, elapsed); LOGGER.warning('chat failed status=503 latency_ms=%.0f', elapsed)
+            self.send_json({'error': '模型服务暂时无法连接，请稍后重试。'}, 503)
         except APIStatusError as exc:
-            self.send_body(json.dumps({'error': f'模型服务返回 HTTP {exc.status_code}。'}, ensure_ascii=False), 'application/json; charset=utf-8', 502)
+            elapsed = (time.perf_counter() - started) * 1000
+            record_metric(502, elapsed); LOGGER.warning('chat failed status=502 latency_ms=%.0f', elapsed)
+            self.send_json({'error': f'模型服务返回 HTTP {exc.status_code}。'}, 502)
         except sqlite3.Error:
-            self.send_body(json.dumps({'error': '预订数据暂时无法保存，请稍后重试。'}, ensure_ascii=False), 'application/json; charset=utf-8', 503)
+            elapsed = (time.perf_counter() - started) * 1000
+            record_metric(503, elapsed); LOGGER.warning('chat failed status=503 latency_ms=%.0f', elapsed)
+            self.send_json({'error': '预订数据暂时无法保存，请稍后重试。'}, 503)
 
     def log_message(self, *_):
         return
@@ -93,6 +165,10 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     global ASSISTANT
+    logging.basicConfig(
+        level=os.getenv('LOG_LEVEL', 'INFO').upper(),
+        format='%(asctime)s %(levelname)s %(name)s %(message)s',
+    )
     print('正在加载本地知识库和模型，请稍候...')
     ASSISTANT = build_assistant()
     host = os.getenv('HOST', '127.0.0.1')

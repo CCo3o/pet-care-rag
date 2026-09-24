@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.test-tmp/
 
 # ===== 密钥（重要！绝不提交）=====
 .env

@@ -34,6 +34,24 @@
 | 云部署 | Docker + Render |
 | 商家侧接入 | Edge / Chrome Extension（Manifest V3） |
 
+## 🧭 系统架构
+
+```mermaid
+flowchart LR
+    C[顾客小红书消息] --> E[浏览器插件]
+    E -->|POST /api/chat| A[Render Web API]
+    A --> R[RAG 检索]
+    R --> V[本地向量库 / BGE]
+    A --> T[算价、档期、预订工具]
+    A --> L[DeepSeek]
+    L --> A
+    A --> E
+    E -->|低风险自动发送| C
+    E -.->|预订、付款、健康问题：商家确认| C
+```
+
+插件只负责小红书页面接入和风险分流，业务规则与模型调用集中在后端，便于替换前端渠道并统一审计。
+
 ## 📁 项目结构
 
 ```
@@ -155,6 +173,8 @@ Windows 下也可以直接双击项目根目录的 `start_web.bat`：它会启�
 
 项目已提供 `Dockerfile`，云平台启动时会执行 `python -m app.web`，并读取平台注入的 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` 环境变量。健康检查地址为 `/health`。本地订单数据库和向量库不打包进镜像，生产环境需要单独配置持久化存储或数据库。
 
+运行指标地址为 `/metrics`，返回请求数、成功数、错误数、限流数和平均延迟，便于面试现场展示可观测性。`/api/chat` 默认按客户端每分钟限制 30 次，可通过 `RATE_LIMIT_PER_MINUTE` 调整；当前限流和指标保存在进程内，生产环境应迁移到 Redis/API 网关并补充用户鉴权。
+
 ## 📚 知识库规则
 
 具体价格、退改、入住资格等业务事实只以权威规则文档为准；FAQ 是简短入口，历史资料放在 `data/archive/`，不会进入检索。详见 [知识库治理说明](docs/知识库治理.md)。
@@ -202,6 +222,6 @@ python -m unittest discover -s tests
 - [ ] Rerank 重排序，量化准确率提升
 - [x] Web 服务 + Docker + Render 在线 Demo
 - [x] 小红书网页插件接入与低风险自动回复
-- [ ] 商家账号、接口鉴权、限流与对话审计
+- [ ] 商家账号、接口鉴权、Redis 分布式限流与持久化对话审计
 - [ ] 接入平台官方消息开放能力或建设移动端商家后台
 - [ ] 写技术博客记录踩坑过程
