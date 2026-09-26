@@ -1,0 +1,4 @@
+{"timestamp":"2026-09-25T14:20:01+08:00","service":"order-api","level":"ERROR","trace_id":"tr-001","message":"database connection timeout after 3000ms","route":"POST /orders"}
+{"timestamp":"2026-09-25T14:20:02+08:00","service":"order-api","level":"ERROR","trace_id":"tr-002","message":"database connection pool exhausted","route":"POST /orders"}
+{"timestamp":"2026-09-25T14:20:03+08:00","service":"order-api","level":"WARN","trace_id":"tr-003","message":"request latency 4820ms","route":"POST /orders"}
+{"timestamp":"2026-09-25T14:21:10+08:00","service":"order-api","level":"INFO","trace_id":"tr-004","message":"health check passed","route":"GET /health"}

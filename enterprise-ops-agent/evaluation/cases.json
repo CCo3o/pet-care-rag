@@ -1,0 +1,16 @@
+[
+  {
+    "id": "case-001",
+    "category": "database",
+    "question": "订单接口突然大量返回 500，日志里有 database connection timeout，怎么排查？",
+    "expected_sources": ["order-api.md", "deployment.md"],
+    "expected_tools": ["search_docs", "search_logs", "get_metric_snapshot"]
+  },
+  {
+    "id": "case-002",
+    "category": "latency",
+    "question": "POST /orders 的延迟突然升高，应该先看哪些指标？",
+    "expected_sources": ["order-api.md", "deployment.md"],
+    "expected_tools": ["search_docs", "get_metric_snapshot"]
+  }
+]

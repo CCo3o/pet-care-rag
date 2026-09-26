@@ -1,0 +1,8 @@
+{
+  "service": "order-api",
+  "window": "2026-09-25T14:20:00+08:00/2026-09-25T14:25:00+08:00",
+  "error_rate": 0.18,
+  "p95_latency_ms": 4820,
+  "db_pool_in_use": 20,
+  "db_pool_size": 20
+}
